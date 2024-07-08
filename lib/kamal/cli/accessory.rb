@@ -1,8 +1,8 @@
 class Kamal::Cli::Accessory < Kamal::Cli::Base
   desc "boot [NAME]", "Boot new accessory service on host (use NAME=all to boot all accessories)"
   option :skip_login, type: :boolean, default: false, desc: "Don't log into the registry"
-  def boot(name)
-    login = options[:skip_login] ? false : true
+  def boot(name, login: true)
+    do_login = options[:skip_login] ? false : login
     with_lock do
       if name == "all"
         KAMAL.accessory_names.each { |accessory_name| boot(accessory_name) }
@@ -12,7 +12,7 @@ class Kamal::Cli::Accessory < Kamal::Cli::Base
           upload(name)
 
           on(hosts) do
-            execute *KAMAL.registry.login if login
+            execute *KAMAL.registry.login if do_login
             execute *KAMAL.auditor.record("Booted #{name} accessory"), verbosity: :debug
             execute *accessory.run
           end
@@ -52,14 +52,18 @@ class Kamal::Cli::Accessory < Kamal::Cli::Base
   end
 
   desc "reboot [NAME]", "Reboot existing accessory on host (stop container, remove container, start new container; use NAME=all to boot all accessories)"
+  option :skip_login, type: :boolean, default: false, desc: "Don't log into the registry"
   def reboot(name)
+    login = options[:skip_login] ? false : true
     with_lock do
       if name == "all"
         KAMAL.accessory_names.each { |accessory_name| reboot(accessory_name) }
       else
         with_accessory(name) do |accessory, hosts|
-          on(hosts) do
-            execute *KAMAL.registry.login
+          if login
+            on(hosts) do
+              execute *KAMAL.registry.login
+            end
           end
 
           stop(name)
