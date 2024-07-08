@@ -1,9 +1,11 @@
 class Kamal::Cli::Traefik < Kamal::Cli::Base
   desc "boot", "Boot Traefik on servers"
+  option :skip_login, type: :boolean, default: false, desc: "Don't log into the registry"
   def boot
+    login = options[:skip_login] ? false : true
     with_lock do
       on(KAMAL.traefik_hosts) do
-        execute *KAMAL.registry.login
+        execute *KAMAL.registry.login if login
         execute *KAMAL.traefik.start_or_run
       end
     end
@@ -12,7 +14,9 @@ class Kamal::Cli::Traefik < Kamal::Cli::Base
   desc "reboot", "Reboot Traefik on servers (stop container, remove container, start new container)"
   option :rolling, type: :boolean, default: false, desc: "Reboot traefik on hosts in sequence, rather than in parallel"
   option :confirmed, aliases: "-y", type: :boolean, default: false, desc: "Proceed without confirmation question"
+  option :skip_login, type: :boolean, default: false, desc: "Don't log into the registry"
   def reboot
+    login = options[:skip_login] ? false : true
     confirming "This will cause a brief outage on each host. Are you sure?" do
       with_lock do
         host_groups = options[:rolling] ? KAMAL.traefik_hosts : [ KAMAL.traefik_hosts ]
@@ -21,7 +25,7 @@ class Kamal::Cli::Traefik < Kamal::Cli::Base
           run_hook "pre-traefik-reboot", hosts: host_list
           on(hosts) do
             execute *KAMAL.auditor.record("Rebooted traefik"), verbosity: :debug
-            execute *KAMAL.registry.login
+            execute *KAMAL.registry.login if login
             execute *KAMAL.traefik.stop, raise_on_non_zero_exit: false
             execute *KAMAL.traefik.remove_container
             execute *KAMAL.traefik.run

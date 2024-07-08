@@ -1,6 +1,8 @@
 class Kamal::Cli::Accessory < Kamal::Cli::Base
   desc "boot [NAME]", "Boot new accessory service on host (use NAME=all to boot all accessories)"
-  def boot(name, login: true)
+  option :skip_login, type: :boolean, default: false, desc: "Don't log into the registry"
+  def boot(name)
+    login = options[:skip_login] ? false : true
     with_lock do
       if name == "all"
         KAMAL.accessory_names.each { |accessory_name| boot(accessory_name) }
